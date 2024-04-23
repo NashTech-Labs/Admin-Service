@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: ${SERVICE_NAME:Admin-Service}
+
+pubsub:
+  project-id: ${GCP_PROJECT_ID:my-project-id}
+  topic-id: ${PUB_SUB_TOPIC_ID:my-topic-id}
