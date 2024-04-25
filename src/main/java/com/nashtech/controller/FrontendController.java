@@ -1,10 +1,12 @@
 package com.nashtech.controller;
 
 import com.nashtech.service.PubSubPublisherService;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
+import com.nashtech.service.ReadFromResumesServices;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,67 +16,34 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.Objects;
 
 @RestController
 @RequestMapping("/resumes")
+@AllArgsConstructor
 public class FrontendController {
     final static Logger logger = LoggerFactory.getLogger(FrontendController.class);
-    private final Path fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+    @Autowired
     private final PubSubPublisherService pubSubPublisherService;
+    @Autowired
+    private final ReadFromResumesServices readFromResumesServices;
 
-    public FrontendController(PubSubPublisherService pubSubPublisherService) {
-        this.pubSubPublisherService = pubSubPublisherService;
-    }
-
-    @GetMapping("/get")
+    @GetMapping("/report")
     public String getMessage(){
         return "Hello";
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> getResumes(@RequestParam("file") MultipartFile file) {
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-            Path targetLocation = this.fileStorageLocation.resolve(Objects.requireNonNull(file.getOriginalFilename()));
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            byte[] fileContent = file.getBytes();
-            String messageContent = new String(fileContent, StandardCharsets.UTF_8);
-            System.out.println(messageContent);
-            pubSubPublisherService.messagePublisher(messageContent);
-            return ResponseEntity.ok("File uploaded successfully: " + file.getOriginalFilename());
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body("Could not store file " + file.getOriginalFilename() + ". Please try again!");
-        }
-    }
-
-    @PostMapping("/pdf")
     public ResponseEntity<String> getResumesInPDFFormat(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("No file uploaded.");
         }
-
-        try (InputStream pdfInputStream = file.getInputStream()) {
-            // Load PDF document from input stream
-            logger.info("Started Reading Text from uploaded PDF\n");
-            PDDocument document = PDDocument.load(pdfInputStream);
-            String extractedText = extractTextFromPdf(document);
-            document.close();
-            logger.info("Extracted Text from PDF:\n" + extractedText);
-            return ResponseEntity.ok("File uploaded and text extracted. Check console for output.");
+        try {
+            String resumeData = readFromResumesServices.readFromUploadedResumeFile(file);
+            logger.info("Writing Data in Pub/Sub Topic");
+            pubSubPublisherService.messagePublisher(resumeData);
+            return ResponseEntity.ok("Resume Data uploaded to pub/sub topic");
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body("Error processing PDF file: " + e.getMessage());
         }
-    }
-
-    private String extractTextFromPdf(PDDocument document) throws IOException {
-        PDFTextStripper stripper = new PDFTextStripper();
-        return stripper.getText(document).replaceAll("[^a-zA-Z0-9\\s]", "");
     }
 }
