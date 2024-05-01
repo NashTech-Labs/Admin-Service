@@ -3,5 +3,6 @@ spring:
     name: ${SERVICE_NAME:Admin-Service}
 
 pubsub:
-  project-id: ${GCP_PROJECT_ID:my-project-id}
-  topic-id: ${PUB_SUB_TOPIC_ID:my-topic-id}
+  project-id: ${GCP_PROJECT_ID:alert-basis-421507}
+  topic-id: ${PUB_SUB_TOPIC_ID:resume-parser-processor-topic}
+  bucket-name: ${GCS_BUCKET_NAME:ingested_resumes}

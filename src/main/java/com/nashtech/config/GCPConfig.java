@@ -10,4 +10,5 @@ import org.springframework.stereotype.Component;
 public class GCPConfig {
     private String projectId;
     private String topicId;
+    private String bucketName;
 }
