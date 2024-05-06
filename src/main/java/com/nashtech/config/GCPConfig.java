@@ -1,6 +1,7 @@
 package com.nashtech.config;
 
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -8,7 +9,12 @@ import org.springframework.stereotype.Component;
 @Data
 @Component
 public class GCPConfig {
-    private String projectId;
-    private String topicId;
-    private String bucketName;
+    @Value("${gcp.project.id}")
+    private String gcpProjectId;
+
+    @Value("${gcp.bucket.name}")
+    private String gcpBucketName;
+
+    @Value("${gcp.topic.id}")
+    private String gcpTopicId;
 }

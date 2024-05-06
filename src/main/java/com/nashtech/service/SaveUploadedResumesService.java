@@ -18,35 +18,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
 @AllArgsConstructor
 public class SaveUploadedResumesService {
     private final static Logger logger = LoggerFactory.getLogger(SaveUploadedResumesService.class);
-    private final Path fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+
     @Autowired
     private GCPConfig gcpConfig;
     private ObjectMapper objectMapper;
 
-    public void saveResumes(final MultipartFile file) {
+    public void saveResumes(final MultipartFile file, String resumeData) {
         String uuid = String.valueOf(UUID.randomUUID());
         try {
-            Files.createDirectories(this.fileStorageLocation);
-            Path targetLocation = this.fileStorageLocation.resolve(Objects.requireNonNull(file.getOriginalFilename()));
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            String path = sendToGCSBucket(targetLocation, file.getOriginalFilename());
+            //String path = sendToGCSBucket(file.getOriginalFilename(), resumeData);
             HashMap<String, String> messageMap = new HashMap<>();
             messageMap.put("candidateID",uuid);
-            messageMap.put("path", path);
+            messageMap.put("path", "hello");
             messageMap.put("insertedTime", Instant.now().toString());
             messageMap.put("sourceSystem", "InternalStorage");
             pathPublisher(objectMapper.writeValueAsString(messageMap));
@@ -56,34 +48,36 @@ public class SaveUploadedResumesService {
         }
     }
 
-    private String sendToGCSBucket(final Path targetLocation, final String objectName) throws Exception {
-        System.out.println("method 1");
-        Storage storage = StorageOptions.newBuilder().setProjectId(gcpConfig.getProjectId()).build().getService();
-        System.out.println("Hello---------------");
-        BlobId blobId = BlobId.of(gcpConfig.getBucketName(), objectName);
-        System.out.println("---------------------Hello---------------");
-        BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+    private String sendToGCSBucket(String objectName, String resumeData) {
         try {
-            storage.createFrom(blobInfo, Paths.get(targetLocation.toUri()));
-        } catch (Exception e) {
-            throw new Exception(e);
+            System.out.println("line 57");
+            Storage storage = StorageOptions.newBuilder().setProjectId(gcpConfig.getGcpProjectId()).build().getService();
+            System.out.println("line 59");
+            BlobId blobId = BlobId.of(gcpConfig.getGcpBucketName(), objectName);
+            System.out.println("line 61");
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("application/pdf").build();
+            System.out.println("line 63");
+            storage.create(blobInfo, resumeData.getBytes(StandardCharsets.UTF_8));
+            logger.info("uploaded to bucket " + gcpConfig.getGcpBucketName() + " as " + objectName);
+            return (gcpConfig.getGcpBucketName() + objectName);
+        } catch (Exception exception) {
+            logger.info("Exception Occurred : "+ exception.getMessage());
+            return ("Error");
         }
-        logger.info(
-                "File " + targetLocation + " uploaded to bucket " + gcpConfig.getBucketName() + " as " + objectName);
-        return (gcpConfig.getBucketName() + objectName);
     }
 
+
     private void pathPublisher(final String message) {
-        TopicName topicName = TopicName.of(gcpConfig.getProjectId(), gcpConfig.getTopicId());
+        TopicName topicName = TopicName.of(gcpConfig.getGcpProjectId(), gcpConfig.getGcpTopicId());
         Publisher publisher;
-        logger.info("Publishing resume data to topic: {}", gcpConfig.getTopicId());
+        logger.info("Publishing resume data to topic: {}", gcpConfig.getGcpTopicId());
         try {
             publisher = Publisher.newBuilder(topicName).build();
             PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8(message)).build();
             ApiFuture<String> publishedMessage = publisher.publish(pubsubMessage);
             logger.info("Message id generated:{}", publishedMessage.get());
         } catch (Exception exception) {
-            logger.error("Error : {} while publishing resume data to pub sub topic : {}", exception.getMessage(), gcpConfig.getTopicId());
+            logger.error("Error : {} while publishing resume data to pub sub topic : {}", exception.getMessage(), gcpConfig.getGcpTopicId());
         }
     }
 

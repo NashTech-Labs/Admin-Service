@@ -2,7 +2,15 @@ spring:
   application:
     name: ${SERVICE_NAME:Admin-Service}
 
-pubsub:
-  project-id: ${GCP_PROJECT_ID:alert-basis-421507}
-  topic-id: ${PUB_SUB_TOPIC_ID:resume-parser-processor-topic}
-  bucket-name: ${GCS_BUCKET_NAME:ingested_resumes}
+#pubsub:
+#  project-id: ${GCP_PROJECT_ID:alert-basis-421507}
+#  topic-id: ${PUB_SUB_TOPIC_ID:resume-parser-processor-topic}
+#  bucket-name: ${GCS_BUCKET_NAME:ingested_resumes}
+
+gcp:
+  project:
+    id: alert-basis-421507
+  bucket:
+    name: ingested_resumes
+  topic:
+    id: resume-parser-processor-topic
