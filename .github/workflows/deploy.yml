@@ -1,0 +1,87 @@
+name: Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  IMAGE_NAME: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/gcp-demo-app/gcp-deployment
+  GKE_CLUSTER: ${{ secrets.GCP_CLUSTER_NAME }}
+  GKE_ZONE: us-central1-c
+  GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH }}
+  PUB_SUB_TOPIC_ID: ${{ secrets.PUB_SUB_TOPIC_ID }}
+
+jobs:
+  setup-build-deploy:
+    name: Setup, Build, and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 19
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: 19
+      - run: mvn clean install --batch-mode --errors --fail-at-end
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: java-competency-demo-0.0.1-SNAPSHOT.jar
+          path: target/
+
+  build-docker-image:
+    name: Build Docker
+    needs: setup-build-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Retrieve saved jar
+        uses: actions/download-artifact@v2
+        with:
+          name: java-competency-demo-0.0.1-SNAPSHOT.jar
+          path: target/
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 446.0.1'
+          project_id: ${{env.PROJECT_ID}}
+          service_account_key: ${{env.GCLOUD_AUTH}}
+          export_default_credentials: true
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: ${{env.GCLOUD_AUTH}}
+      - name: Configure Docker for Google Cloud Artifact Registry
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev
+      - name: Build and push Docker image to Artifact Registry
+        run: |
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-central1-docker.pkg.dev
+          echo $IMAGE_NAME
+          docker build --tag $IMAGE_NAME .
+          docker push $IMAGE_NAME        
+  
+
+  deploy-to-gke:
+    needs: build-docker-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Modify YAML
+        run: |
+          sed -i "s#image: us-central1-docker.pkg.dev/project-id/gcp-demo-app/gcp-deployment#image: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/gcp-demo-app/gcp-deployment#g" k8s/gcp_deploy_service.yml
+          sed -i "s#GCP_PROJECT_ID: gcp_project_id#GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}#g" k8s/gcp_deploy_service.yml
+          sed -i "s#PUB_SUB_TOPIC_ID: pub_sub_topic_id#PUB_SUB_TOPIC_ID: ${{ secrets.PUB_SUB_TOPIC_ID }}#g" k8s/gcp_deploy_service.yml
+          sed -i "s#GCS_BUCKET_NAME: gcs_bucket_name#GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}#g" k8s/gcp_deploy_service.yml
+      - name: kubectl - Google Cloud GKE cluster.
+        uses: ameydev/gke-kubectl-action@master
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          APPLICATION_CREDENTIALS: ${{ secrets.GCLOUD_AUTH }}
+          CLUSTER_NAME: ${{ secrets.GCP_CLUSTER_NAME }}
+          ZONE_NAME: us-central1-c
+        with:
+          args: apply -f k8s/

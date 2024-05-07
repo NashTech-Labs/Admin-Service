@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/resumes")
@@ -27,22 +29,33 @@ public class FrontendController {
     private final SaveUploadedResumesService saveUploadedResumesService;
 
     @GetMapping("/report")
-    public String getMessage(){
-        return "Hello";
+    public ResponseEntity<String> getTopCandidateProfile(){
+        String url = "api";
+        try{
+            RestTemplate restTemplate = new RestTemplate();
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return ResponseEntity.ok(response.getBody());
+        } catch (Exception exception) {
+            return ResponseEntity.internalServerError().body("Error fetching the top candidates: " + exception.getMessage());
+        }
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> getResumesInPDFFormat(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<String> getResumesDataAndAnalysisReport(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("No file uploaded.");
         }
         try {
+            RestTemplate restTemplate = new RestTemplate();
+            String encodedParam = URLEncoder.encode(String.valueOf(file), StandardCharsets.UTF_8);
+            String url = "http://192.168.1.116:5000/gpt-upload-resume?query=" + encodedParam;
             String resumeData = readFromResumesServices.readFromUploadedResumeFile(file);
             logger.info("Writing Data in Pub/Sub Topic");
             saveUploadedResumesService.saveResumes(file, resumeData);
-            return ResponseEntity.ok("Resume File uploaded");
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body("Error processing PDF file: " + e.getMessage());
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return ResponseEntity.ok(response.getBody());
+        } catch (Exception exception) {
+            return ResponseEntity.internalServerError().body("Error processing Resume: " + exception.getMessage());
         }
     }
 }
