@@ -41,16 +41,15 @@ public class FrontendController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> getResumesDataAndAnalysisReport(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<String> uploadResumeData (@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("No file uploaded.");
+            return ResponseEntity.badRequest().body("No file found / File not uploaded properly.");
         }
         try {
             RestTemplate restTemplate = new RestTemplate();
             String encodedParam = URLEncoder.encode(String.valueOf(file), StandardCharsets.UTF_8);
             String url = "http://192.168.1.116:5000/gpt-upload-resume?query=" + encodedParam;
             String resumeData = readFromResumesServices.readFromUploadedResumeFile(file);
-            logger.info("Writing Data in Pub/Sub Topic");
             saveUploadedResumesService.saveResumes(file, resumeData);
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             return ResponseEntity.ok(response.getBody());

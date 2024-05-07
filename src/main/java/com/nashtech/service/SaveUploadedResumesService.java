@@ -42,20 +42,20 @@ public class SaveUploadedResumesService {
 
         String uuid = String.valueOf(UUID.randomUUID());
         try {
-            String path = sendToGCSBucket(file.getOriginalFilename(), resumeData);
+            String path = uploadFileToGCSBucket(file.getOriginalFilename(), resumeData);
             HashMap<String, String> messageMap = new HashMap<>();
             messageMap.put("candidateID",uuid);
             messageMap.put("path", path);
             messageMap.put("insertedTime", Instant.now().toString());
             messageMap.put("sourceSystem", "InternalStorage");
-            pathPublisher(objectMapper.writeValueAsString(messageMap));
+            publishFilePathToPubSub(objectMapper.writeValueAsString(messageMap));
             logger.info("Resume File Stored Successfully in GCS Bucket");
-        } catch (Exception e) {
-            logger.info("Error in Storing the File : {}", e.getMessage());
+        } catch (Exception exception) {
+            logger.info("Error in Storing the File : {}", exception.getMessage());
         }
     }
 
-    private String sendToGCSBucket(String objectName, String resumeData) {
+    private String uploadFileToGCSBucket(String objectName, String resumeData) {
         String fileUrl = "";
 
         String baseUrl = "https://storage.cloud.google.com/";
@@ -79,14 +79,15 @@ public class SaveUploadedResumesService {
 
             logger.info("uploaded to bucket " + gcpConfig.getGcpBucketName() + " as " + objectName);
             return (fileUrl);
+
         } catch (Exception exception) {
             logger.info("Exception Occurred : "+ exception.getMessage());
-            return ("Error");
+            return ("Error, Unable to store file in storage");
         }
     }
 
 
-    private void pathPublisher(final String message) {
+    private void publishFilePathToPubSub(final String message) {
         TopicName topicName = TopicName.of(gcpConfig.getGcpProjectId(), gcpConfig.getGcpTopicId());
         Publisher publisher;
         logger.info("Publishing resume data to topic: {}", gcpConfig.getGcpTopicId());
