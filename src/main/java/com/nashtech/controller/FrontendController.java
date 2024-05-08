@@ -1,5 +1,6 @@
 package com.nashtech.controller;
 
+import com.nashtech.config.LLMConfig;
 import com.nashtech.service.ReadFromResumesServices;
 import com.nashtech.service.SaveUploadedResumesService;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,9 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/resumes")
 @AllArgsConstructor
 public class FrontendController {
+
+    @Autowired
+    private LLMConfig llmConfig;
     final static Logger logger = LoggerFactory.getLogger(FrontendController.class);
     @Autowired
     private final ReadFromResumesServices readFromResumesServices;
@@ -30,10 +34,9 @@ public class FrontendController {
 
     @GetMapping("/report")
     public ResponseEntity<String> getTopCandidateProfile(){
-        String url = "api";
         try{
             RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            ResponseEntity<String> response = restTemplate.getForEntity(llmConfig.getTopCandidatesUrl(), String.class);
             return ResponseEntity.ok(response.getBody());
         } catch (Exception exception) {
             return ResponseEntity.internalServerError().body("Error fetching the top candidates: " + exception.getMessage());
@@ -48,7 +51,7 @@ public class FrontendController {
         try {
             RestTemplate restTemplate = new RestTemplate();
             String encodedParam = URLEncoder.encode(String.valueOf(file), StandardCharsets.UTF_8);
-            String url = "http://192.168.1.116:5000/gpt-upload-resume?query=" + encodedParam;
+            String url =  llmConfig.getResumeStructureUrl() + encodedParam;
             String resumeData = readFromResumesServices.readFromUploadedResumeFile(file);
             saveUploadedResumesService.saveResumes(file, resumeData);
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);

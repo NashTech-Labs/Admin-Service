@@ -11,3 +11,8 @@ gcp:
     name: ${GCS_BUCKET_NAME:ingested_resumes}
   topic:
     id: ${PUB_SUB_TOPIC_ID:resume-parser-processor-topic}
+
+llm:
+  api:
+    resumeStructure: "http://192.168.1.116:5000/gpt-upload-resume?query="
+    topCandidates: "Testing URL"
