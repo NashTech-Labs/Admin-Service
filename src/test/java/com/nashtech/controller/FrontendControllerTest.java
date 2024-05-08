@@ -44,7 +44,7 @@ class FrontendControllerTest {
                 new SaveUploadedResumesService());
 
         // Act
-        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.getResumesDataAndAnalysisReport(
+        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.uploadResumeData(
                 new MockMultipartFile("Name", new ByteArrayInputStream("AXAXAXAX".getBytes("UTF-8"))));
 
         // Assert
@@ -61,7 +61,7 @@ class FrontendControllerTest {
         FrontendController frontendController = new FrontendController(null, new SaveUploadedResumesService());
 
         // Act
-        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.getResumesDataAndAnalysisReport(
+        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.uploadResumeData(
                 new MockMultipartFile("Name", new ByteArrayInputStream("AXAXAXAX".getBytes("UTF-8"))));
 
         // Assert
@@ -82,7 +82,7 @@ class FrontendControllerTest {
         FrontendController frontendController = new FrontendController(readFromResumesServices, null);
 
         // Act
-        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.getResumesDataAndAnalysisReport(
+        ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController.uploadResumeData(
                 new MockMultipartFile("Name", new ByteArrayInputStream("AXAXAXAX".getBytes("UTF-8"))));
 
         // Assert
@@ -103,10 +103,10 @@ class FrontendControllerTest {
 
         // Act
         ResponseEntity<String> actualResumesDataAndAnalysisReport = frontendController
-                .getResumesDataAndAnalysisReport(new MockMultipartFile("Name", new ByteArrayInputStream(new byte[]{})));
+                .uploadResumeData(new MockMultipartFile("Name", new ByteArrayInputStream(new byte[]{})));
 
         // Assert
-        assertEquals("No file uploaded.", actualResumesDataAndAnalysisReport.getBody());
+        assertEquals("No file found / File not uploaded properly.", actualResumesDataAndAnalysisReport.getBody());
         assertEquals(400, actualResumesDataAndAnalysisReport.getStatusCodeValue());
         assertTrue(actualResumesDataAndAnalysisReport.getHeaders().isEmpty());
     }
