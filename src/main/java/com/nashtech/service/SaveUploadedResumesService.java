@@ -58,7 +58,7 @@ public class SaveUploadedResumesService {
     private String uploadFileToGCSBucket(String objectName, String resumeData) {
         String fileUrl = "";
 
-        String baseUrl = "https://storage.cloud.google.com/";
+        String baseUrl = "gs://";
 
         try {
             ByteString data = ByteString.copyFrom(Objects.requireNonNull(resumeData.getBytes()));
