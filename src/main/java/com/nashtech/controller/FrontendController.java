@@ -6,12 +6,16 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nashtech.config.LLMConfig;
 import com.nashtech.entity.JobKeywords;
+import com.nashtech.entity.ResumeRequest;
 import com.nashtech.service.ReadFromResumesServices;
 import com.nashtech.service.SaveUploadedResumesService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -21,10 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 @RestController
 @RequestMapping("/resumes")
@@ -69,20 +70,38 @@ public class FrontendController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadResumeData (@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Object> uploadResumeData (@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("No file found / File not uploaded properly.");
         }
         try {
-            String encodedParam = URLEncoder.encode(String.valueOf(file), StandardCharsets.UTF_8);
-            String url =  llmConfig.getResumeStructureUrl() + encodedParam;
             String resumeData = readFromResumesServices.readFromUploadedResumeFile(file);
-            saveUploadedResumesService.saveResumes(file, resumeData);
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-            return ResponseEntity.ok(response.getBody());
+            HashMap<String, String> resumeInfo = saveUploadedResumesService.saveResumes(file);
+            if (resumeInfo.containsKey("error")) {
+                return ResponseEntity.badRequest().body(resumeInfo);
+            }
+            ResumeRequest request = new ResumeRequest();
+            request.setPath(resumeInfo.get("path"));
+            request.setCandidateID(resumeInfo.get("candidateID"));
+            return ResponseEntity.ok(sendResumeRequest(request));
         } catch (Exception exception) {
             return ResponseEntity.internalServerError().body("Error processing Resume: " + exception.getMessage());
         }
+    }
+
+    private Object sendResumeRequest(ResumeRequest request) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Content-Type", "application/json");
+
+        HttpEntity<ResumeRequest> entity = new HttpEntity<>(request, headers);
+
+        ResponseEntity<Object> response = restTemplate.exchange(
+                llmConfig.getAnalysisResumeUrl(),
+                HttpMethod.POST,
+                entity,
+                Object.class);
+        logger.info("Response from third-party API: " + response.getBody());
+        return response.getBody();
     }
 
     private JsonNode filterCandidateInformation(String response) throws IOException {

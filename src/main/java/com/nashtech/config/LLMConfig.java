@@ -15,4 +15,7 @@ public class LLMConfig {
 
     @Value("${llm.api.fetchResume}")
     private String fetchResume;
+
+    @Value("${llm.api.analysisResume}")
+    private String analysisResumeUrl;
 }

@@ -38,13 +38,12 @@ public class SaveUploadedResumesService {
 
 
 
-    public void saveResumes(final MultipartFile file, String resumeData) {
-
+    public HashMap<String, String> saveResumes(final MultipartFile file) {
+        HashMap<String, String> messageMap = new HashMap<>();
         String uuid = String.valueOf(UUID.randomUUID());
         try {
-            String path = uploadFileToGCSBucket(file.getOriginalFilename(), resumeData);
-            HashMap<String, String> messageMap = new HashMap<>();
-            messageMap.put("candidateID", uuid);
+            String path = uploadFileToGCSBucket(file.getOriginalFilename(), file);
+            messageMap.put("candidateID",uuid);
             messageMap.put("path", path);
             messageMap.put("insertedTime", Instant.now().toString());
             messageMap.put("sourceSystem", "InternalStorage");
@@ -52,39 +51,50 @@ public class SaveUploadedResumesService {
             logger.info("Resume File Stored Successfully in GCS Bucket");
         } catch (Exception exception) {
             logger.info("Error in Storing the File : {}", exception.getMessage());
+            messageMap.clear();
+            messageMap.put("error", "Failed to store file");
+            messageMap.put("exceptionMessage", exception.getMessage());
         }
+        return messageMap;
     }
 
-    private String uploadFileToGCSBucket(String objectName, String resumeData) {
-        String fileUrl = "";
-
+    private String uploadFileToGCSBucket(String objectName, MultipartFile file) {
         String baseUrl = "gs://";
 
         try {
-            ByteString data = ByteString.copyFrom(Objects.requireNonNull(resumeData.getBytes()));
+            byte[] content = file.getBytes();
+            String contentType = file.getContentType();
 
             HttpTransportOptions transportOptions = StorageOptions.getDefaultHttpTransportOptions();
-            transportOptions = transportOptions.toBuilder().setConnectTimeout(60000).setReadTimeout(60000)
+            transportOptions = transportOptions.toBuilder()
+                    .setConnectTimeout(60000)
+                    .setReadTimeout(60000)
                     .build();
-            Storage storage = StorageOptions.newBuilder().setTransportOptions(transportOptions)
-                    .setProjectId(gcpConfig.getGcpProjectId()).build().getService();
+            Storage storage = StorageOptions.newBuilder()
+                    .setTransportOptions(transportOptions)
+                    .setProjectId(gcpConfig.getGcpProjectId())
+                    .build()
+                    .getService();
 
             BlobId blobId = BlobId.of(Objects.requireNonNull(gcpConfig.getGcpBucketName()), objectName);
-            BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
-            byte[] content = data.toByteArray();
-            storage.createFrom(blobInfo, new ByteArrayInputStream(content));
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                    .setContentType(contentType)
+                    .build();
 
-            fileUrl = baseUrl + gcpConfig.getGcpBucketName() + "/" + objectName;
-            logger.info(fileUrl);
+            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(content)) {
+                storage.createFrom(blobInfo, byteStream);
+            }
 
-            logger.info("uploaded to bucket " + gcpConfig.getGcpBucketName() + " as " + objectName);
-            return (fileUrl);
+            String fileUrl = baseUrl + gcpConfig.getGcpBucketName() + "/" + objectName;
+            logger.info("File uploaded to URL: " + fileUrl);
+            return fileUrl;
 
         } catch (Exception exception) {
-            logger.info("Exception Occurred : " + exception.getMessage());
-            return ("Error, Unable to store file in storage");
+            logger.error("Exception occurred while uploading file to GCS", exception);
+            return "Error, Unable to store file in storage";
         }
     }
+
 
 
     private void publishFilePathToPubSub(final String message) {

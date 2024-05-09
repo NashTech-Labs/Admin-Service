@@ -16,3 +16,4 @@ llm:
   api:
     resumeStructure: "http://192.168.1.116:5000/gpt-upload-resume?query="
     fetchResume: "http://34.85.174.13/fetch-resume"
+    analysisResume: "http://34.85.174.13/analyse-resume"
