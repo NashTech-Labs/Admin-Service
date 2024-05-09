@@ -44,7 +44,7 @@ public class SaveUploadedResumesService {
         try {
             String path = uploadFileToGCSBucket(file.getOriginalFilename(), resumeData);
             HashMap<String, String> messageMap = new HashMap<>();
-            messageMap.put("candidateID",uuid);
+            messageMap.put("candidateID", uuid);
             messageMap.put("path", path);
             messageMap.put("insertedTime", Instant.now().toString());
             messageMap.put("sourceSystem", "InternalStorage");
@@ -81,7 +81,7 @@ public class SaveUploadedResumesService {
             return (fileUrl);
 
         } catch (Exception exception) {
-            logger.info("Exception Occurred : "+ exception.getMessage());
+            logger.info("Exception Occurred : " + exception.getMessage());
             return ("Error, Unable to store file in storage");
         }
     }

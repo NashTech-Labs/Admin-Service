@@ -13,6 +13,6 @@ public class LLMConfig {
     @Value("${llm.api.resumeStructure}")
     private String resumeStructureUrl;
 
-    @Value("${llm.api.topCandidates}")
-    private String topCandidatesUrl;
+    @Value("${llm.api.fetchResume}")
+    private String fetchResume;
 }
